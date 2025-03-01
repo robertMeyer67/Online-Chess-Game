@@ -4,64 +4,73 @@ from board import Board
 import pickle
 import time
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+socket= socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 server = "localhost"
 port = 5555
 
-server_ip = socket.gethostbyname(server)
+serverIP = socket.gethostbyname(server)
 
 try:
-    s.bind((server, port))
+    socket.bind((server, port))
 
 except socket.error as e:
-    print(str(e))
+    print(f"Socket error while binding to server and port: {str(e)}")
 
-s.listen()
+socket.listen()
 print("[START] Waiting for a connection")
 
 connections = 0
 
 games = {0:Board(8, 8)}
 
-spectartor_ids = [] 
+spectatorIDs = [] 
 specs = 0
 
 def read_specs():
-    global spectartor_ids
+    """
+    :return: None
+    """
+        
+    global spectatorIDs
 
-    spectartor_ids = []
+    spectatorIDs = []
     try:
         with open("specs.txt", "r") as f:
             for line in f:
-                spectartor_ids.append(line.strip())
+                spectatorIDs.append(line.strip())
     except:
         print("[ERROR] No specs.txt file found, creating one...")
         open("specs.txt", "w")
 
 
 def threaded_client(conn, game, spec=False):
+    """
+    :param game: Game, spec=False: bool
+    :return: None
+    """
+        
     global pos, games, currentId, connections, specs
 
     if not spec:
         name = None
-        bo = games[game]
+        gameBoard = games[game]
 
         if connections % 2 == 0:
             currentId = "w"
         else:
             currentId = "b"
 
-        bo.start_user = currentId
+        gameBoard.start_user = currentId
 
         # Pickle the object and send it to the server
-        data_string = pickle.dumps(bo)
+        dataString = pickle.dumps(gameBoard)
 
         if currentId == "b":
-            bo.ready = True
-            bo.startTime = time.time()
+            gameBoard.set_ready(True)
+            gameBoard.set_startTime(time.time())
 
-        conn.send(data_string)
+        conn.send(dataString)
         connections += 1
 
         while True:
@@ -79,61 +88,62 @@ def threaded_client(conn, game, spec=False):
                         col = int(all[1])
                         row = int(all[2])
                         color = all[3]
-                        bo.select(col, row, color)
+                        gameBoard.select(col, row, color)
 
                     if data == "winner b":
-                        bo.winner = "b"
+                        gameBoard.set_winner("b")
                         print("[GAME] Player b won in game", game)
                     if data == "winner w":
-                        bo.winner = "w"
+                        gameBoard.set_winner("w")
                         print("[GAME] Player w won in game", game)
 
                     if data == "update moves":
-                        bo.update_moves()
+                        gameBoard.update_moves()
 
                     if data.count("name") == 1:
                         name = data.split(" ")[1]
                         if currentId == "b":
-                            bo.p2Name = name
+                            gameBoard.set_p2Name = name
                         elif currentId == "w":
-                            bo.p1Name = name
+                            gameBoard.set_p1Name(name)
 
                     #print("Recieved board from", currentId, "in game", game)
 
-                    if bo.ready:
-                        if bo.turn == "w":
-                            bo.time1 = 900 - (time.time() - bo.startTime) - bo.storedTime1
+                    if gameBoard.ready:
+                        if gameBoard.get_turn() == "w":
+                            gameBoard.set_time1(900 - (time.time() - gameBoard.get_startTime()) - gameBoard.get_storedtime1())
                         else:
-                            bo.time2 = 900 - (time.time() - bo.startTime) - bo.storedTime2
+                            gameBoard.set_time2(900 - (time.time() - gameBoard.get_startTime()) - gameBoard._storedtime2())
 
-                    sendData = pickle.dumps(bo)
+                    sendData = pickle.dumps(gameBoard)
                     #print("Sending board to player", currentId, "in game", game)
 
                 conn.sendall(sendData)
 
             except Exception as e:
-                print(e)
+                print(f"Error while recieving and decoding data: {e}")
         
         connections -= 1
         try:
             del games[game]
             print("[GAME] Game", game, "ended")
-        except:
+        except Exception as e:
+            print(f"Error while deleting game: {e}")
             pass
         print("[DISCONNECT] Player", name, "left game", game)
         conn.close()
 
     else:
-        available_games = list(games.keys())
-        game_ind = 0
-        bo = games[available_games[game_ind]]
-        bo.start_user = "s"
-        data_string = pickle.dumps(bo)
-        conn.send(data_string)
+        availableGames = list(games.keys())
+        gameIndex = 0
+        gameBoard = games[availableGames[gameIndex]]
+        gameBoard.start_user = "s"
+        dataString = pickle.dumps(gameBoard)
+        conn.send(dataString)
 
         while True:
-            available_games = list(games.keys())
-            bo = games[available_games[game_ind]]
+            availableGames = list(games.keys())
+            gameBoard = games[availableGames[gameIndex]]
             try:
                 d = conn.recv(128)
                 data = d.decode("utf-8")
@@ -143,24 +153,24 @@ def threaded_client(conn, game, spec=False):
                     try:
                         if data == "forward":
                             print("[SPECTATOR] Moved Games forward")
-                            game_ind += 1
-                            if game_ind >= len(available_games):
-                                game_ind = 0
+                            gameIndex += 1
+                            if gameIndex >= len(availableGames):
+                                gameIndex = 0
                         elif data == "back":
                             print("[SPECTATOR] Moved Games back")
-                            game_ind -= 1
-                            if game_ind < 0:
-                                game_ind = len(available_games) -1
+                            gameIndex -= 1
+                            if gameIndex < 0:
+                                gameIndex = len(availableGames) -1
 
-                        bo = games[available_games[game_ind]]
+                        gameBoard = games[availableGames[gameIndex]]
                     except:
                         print("[ERROR] Invalid Game Recieved from Spectator")
 
-                    sendData = pickle.dumps(bo)
+                    sendData = pickle.dumps(gameBoard)
                     conn.sendall(sendData)
 
             except Exception as e:
-                print(e)
+                print(f"Error while recieving and decoding data: {e}")
 
         print("[DISCONNECT] Spectator left game", game)
         specs -= 1
@@ -170,7 +180,7 @@ def threaded_client(conn, game, spec=False):
 while True:
     read_specs()
     if connections < 6:
-        conn, addr = s.accept()
+        conn, addr = socket.accept()
         spec = False
         g = -1
         print("[CONNECT] New connection")
@@ -187,7 +197,7 @@ while True:
                 g = 0
                 games[g] = Board(8,8)
 
-        '''if addr[0] in spectartor_ids and specs == 0:
+        '''if addr[0] in spectatorIDs and specs == 0:
             spec = True
             print("[SPECTATOR DATA] Games to view: ")
             print("[SPECTATOR DATA]", games.keys())

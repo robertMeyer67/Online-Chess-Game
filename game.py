@@ -9,6 +9,11 @@ import sys
 import get_pip
 
 def install(package):
+    """
+    :param package: str
+    :return: None
+    """
+        
     subprocess.call([sys.executable, "-m", "pip", "install", package])
 
 try:
@@ -51,16 +56,21 @@ turn = "w"
 
 
 def menu_screen(win, name):
+    """
+    :param win: canvas, name: str
+    :return: None
+    """
+        
     global bo, chessbg
     run = True
     offline = False
 
     while run:
         win.blit(chessbg, (0,0))
-        small_font = pygame.font.SysFont("comicsans", 50)
+        smallFont = pygame.font.SysFont("comicsans", 50)
         
         if offline:
-            off = small_font.render("Server Offline, Try Again Later...", 1, (255, 0, 0))
+            off = smallFont.render("Server Offline, Try Again Later...", 1, (255, 0, 0))
             win.blit(off, (width / 2 - off.get_width() / 2, 500))
 
         pygame.display.update()
@@ -84,6 +94,11 @@ def menu_screen(win, name):
 
     
 def redraw_gameWindow(win, bo, p1, p2, color, ready):
+    """
+    :param win: canvas, bo: Board, p1: Network, p2: Network, color: tuple, ready: bool
+    :return: None
+    """
+        
     win.blit(board, (0, 0))
     bo.draw(win, color)
 
@@ -99,7 +114,7 @@ def redraw_gameWindow(win, bo, p1, p2, color, ready):
         txt = font.render(bo.p1Name + "\'s Time: " + str(formatTime2), 1, (255, 255, 255))
         txt2 = font.render(bo.p2Name + "\'s Time: " + str(formatTime1), 1, (255,255,255))
     except Exception as e:
-        print(e)
+        print(f"Error rendering font: {e}")
     win.blit(txt, (520,10))
     win.blit(txt2, (520, 700))
 
@@ -138,6 +153,11 @@ def redraw_gameWindow(win, bo, p1, p2, color, ready):
 
 
 def end_screen(win, text):
+    """
+    :param win: canvas, text: str
+    :return: None
+    """
+        
     pygame.font.init()
     font = pygame.font.SysFont("comicsans", 80)
     txt = font.render(text,1, (255,0,0))
@@ -177,9 +197,13 @@ def click(pos):
 
 
 def connect():
+    """
+    :return: Board
+    """
+        
     global n
     n = Network()
-    return n.board
+    return n.get_board()
 
 
 def main():
@@ -207,7 +231,7 @@ def main():
         try:
             redraw_gameWindow(win, bo, p1Time, p2Time, color, bo.ready)
         except Exception as e:
-            print(e)
+            print(f"Error while redrawing game window: {e}")
             end_screen(win, "Other player left")
             run = False
             break
